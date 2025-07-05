@@ -6,6 +6,10 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { HomePage } from './pages/HomePage';
+import { SignInPage } from './pages/SignInPage';
+import { SignUpPage } from './pages/SignUpPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { useAuthStore } from './store/authStore';
 import './i18n';
 
@@ -36,6 +40,10 @@ function App() {
             <main className="flex-1">
               <Routes>
                 <Route path="/" element={<HomePage />} />
+                <Route path="/signin" element={<SignInPage />} />
+                <Route path="/signup" element={<SignUpPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
                 {/* Add more routes as needed */}
               </Routes>
             </main>

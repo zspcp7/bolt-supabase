@@ -1,17 +1,22 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
+import { authService } from '../services/authService';
 import type { User } from '../types';
 
 interface AuthState {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  sessionToken: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, userData?: Partial<User>) => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
   initialize: () => Promise<void>;
+  setUser: (user: User | null) => void;
+  setAuthenticated: (authenticated: boolean) => void;
+  setSessionToken: (token: string | null) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -20,6 +25,11 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isLoading: false,
       isAuthenticated: false,
+      sessionToken: null,
+
+      setUser: (user: User | null) => set({ user }),
+      setAuthenticated: (authenticated: boolean) => set({ isAuthenticated: authenticated }),
+      setSessionToken: (token: string | null) => set({ sessionToken: token }),
 
       signIn: async (email: string, password: string) => {
         set({ isLoading: true });
@@ -45,6 +55,7 @@ export const useAuthStore = create<AuthState>()(
             set({
               user: profile,
               isAuthenticated: true,
+              sessionToken: data.session?.access_token || null,
               isLoading: false,
             });
           }
@@ -84,6 +95,7 @@ export const useAuthStore = create<AuthState>()(
             set({
               user: profile,
               isAuthenticated: true,
+              sessionToken: data.session?.access_token || null,
               isLoading: false,
             });
           }
@@ -102,6 +114,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             isAuthenticated: false,
+            sessionToken: null,
             isLoading: false,
           });
         } catch (error: any) {
@@ -156,12 +169,14 @@ export const useAuthStore = create<AuthState>()(
             set({
               user: profile,
               isAuthenticated: true,
+              sessionToken: session.access_token,
               isLoading: false,
             });
           } else {
             set({
               user: null,
               isAuthenticated: false,
+              sessionToken: null,
               isLoading: false,
             });
           }
@@ -169,6 +184,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             isAuthenticated: false,
+            sessionToken: null,
             isLoading: false,
           });
         }
@@ -179,6 +195,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        sessionToken: state.sessionToken,
       }),
     }
   )
@@ -192,6 +209,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     useAuthStore.setState({
       user: null,
       isAuthenticated: false,
+      sessionToken: null,
       isLoading: false,
     });
   } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
