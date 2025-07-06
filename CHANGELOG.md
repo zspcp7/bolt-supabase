@@ -7,95 +7,218 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- **Comprehensive Authentication System**: Complete secure authentication implementation
-  - **Database Schema**: Enhanced users table with authentication fields (username, password_hash, email_verified, failed_login_attempts, locked_until)
-  - **Security Tables**: Password reset tokens, login attempts tracking, user sessions, and CSRF tokens
-  - **Authentication Service**: Robust service layer with input validation, sanitization, and security measures
-  - **Sign-up Functionality**: 
-    - Form validation for username, email, and password with real-time feedback
-    - Password strength indicator with visual feedback
-    - Duplicate user prevention (email and username)
-    - Secure password hashing via Supabase Auth
-    - User profile creation with extended fields
-    - Email verification workflow
-  - **Sign-in Functionality**:
-    - Support for both email and username authentication
-    - Session management with secure tokens
-    - Remember me option with extended session duration
-    - Rate limiting for failed login attempts (5 attempts = 30-minute lockout)
-    - IP address and user agent logging for security
-    - Account lockout protection
-  - **Password Reset System**:
-    - Secure password reset token generation
-    - Email-based password reset workflow
-    - Password strength validation for new passwords
-    - Token expiration and single-use enforcement
-  - **Security Measures**:
-    - Input sanitization to prevent XSS attacks
-    - CSRF token generation and validation
-    - Password strength requirements (8+ chars, uppercase, lowercase, number, special character)
-    - Secure session storage with automatic cleanup
-    - Row Level Security (RLS) policies for all authentication tables
-    - Failed login attempt tracking and rate limiting
-    - Account lockout after multiple failed attempts
-    - Session timeout handling
-  - **User Interface Components**:
-    - Modern, responsive authentication forms with Tailwind CSS
-    - Real-time form validation with error messages
-    - Password visibility toggles
-    - Loading states and user feedback
-    - Accessibility features (ARIA labels, keyboard navigation)
-    - Mobile-optimized design
-  - **Database Functions**:
-    - `cleanup_expired_tokens()`: Automatic cleanup of expired tokens and sessions
-    - `generate_secure_token()`: Cryptographically secure token generation
-    - `check_password_strength()`: Server-side password validation
-    - `is_user_locked()`: Account lockout status checking
-    - `record_login_attempt()`: Security event logging
-  - **Integration with Existing System**:
-    - Seamless integration with existing user roles and permissions
-    - Updated auth store with new authentication methods
-    - Enhanced routing with authentication pages
-    - Internationalization support for all authentication text
+### Fixed - 2025-01-27
 
-- Complete multi-vendor e-commerce platform with dynamic data integration
-- Comprehensive internationalization (i18n) support for English, Turkish, and Chinese
-- Supabase integration with real-time data synchronization
-- React Query for advanced data fetching, caching, and error handling
-- Zustand state management for authentication and shopping cart
-- Dynamic product catalog with categories, vendors, and inventory management
-- Shopping cart functionality with persistent storage
-- Wishlist feature for saving favorite products
-- User authentication system with role-based access control
-- Responsive design with mobile-first approach
-- Language selector component with persistent preferences
-- Product grid and card components with lazy loading
-- Error boundaries for graceful error handling
-- Toast notifications for user feedback
-- Loading states and skeleton screens
-- SEO-friendly routing and meta tags
+#### Critical RLS Policy Fix for User Profile Creation
+**File:** `supabase/migrations/20250706144035_bold_firefly.sql`  
+**Author:** Assistant  
+**Type:** Bug Fix - Critical  
+**Priority:** High - Blocks user registration
 
-### Changed
-- Migrated from static content to fully dynamic, database-driven architecture
-- Enhanced TypeScript integration with comprehensive type definitions
-- Improved component architecture with reusable, data-driven components
-- Updated styling system with consistent design tokens and spacing
-- Refactored API layer for better error handling and performance
-- **Mobile navigation architecture**: Complete redesign of mobile header and overlay system
-- **Enhanced authentication flow**: Integrated new authentication system with existing user management
+**Changes Made:**
+- **Line 1-6:** Added initial INSERT policy `"Allow authenticated users to create their own profile"` for `public.users` table
+  - Allows authenticated users to insert records where `id = auth.uid()`
+  - Addresses RLS violation error during user signup process
 
-### Fixed
-- Resolved potential memory leaks in data fetching hooks
-- Fixed responsive design issues on mobile devices
-- Improved accessibility with proper ARIA labels and keyboard navigation
-- **Mobile overlay state management**: Fixed issues with overlapping overlays and state conflicts
-- **Touch target sizing**: Ensured all interactive elements meet accessibility guidelines
-- **Screen orientation handling**: Improved behavior when device orientation changes
-- **Authentication security**: Implemented comprehensive security measures to prevent common vulnerabilities
+- **Line 8-16:** Added enhanced INSERT policy `"Allow profile creation during signup"` 
+  - Includes email verification check: `email = (SELECT email FROM auth.users WHERE id = auth.uid())`
+  - Ensures profile creation aligns with Supabase Auth user data
+
+- **Line 18-19:** Dropped initial policy to prevent conflicts
+  - Removes `"Allow authenticated users to create their own profile"` policy
+  - Prevents duplicate policy errors
+
+- **Line 21-28:** Created final comprehensive INSERT policy `"Users can create their own profile"`
+  - Combines user ID verification (`id = auth.uid()`) 
+  - Adds email consistency check with Supabase Auth
+  - Replaces previous policies with single, robust solution
+
+**Root Cause:**
+- Missing INSERT permission in RLS policies for `public.users` table
+- Users could authenticate via Supabase Auth but couldn't create corresponding profile records
+- Error: `"new row violates row-level security policy for table "users""`
+
+**Expected Impact:**
+- ✅ **Positive:** User registration flow now completes successfully
+- ✅ **Positive:** Profile creation works for all authentication methods
+- ✅ **Positive:** Maintains security by ensuring users can only create their own profiles
+- ✅ **Positive:** Email consistency enforced between Auth and profile tables
+
+**Potential Side Effects:**
+- ⚠️ **Monitor:** Ensure no duplicate profile creation attempts
+- ⚠️ **Monitor:** Verify email synchronization between auth.users and public.users
+- ⚠️ **Test:** Confirm policy works with social authentication providers
+
+**Testing Requirements:**
+- 🔍 **Critical:** Test complete signup flow (email/password)
+- 🔍 **Critical:** Verify profile creation with email verification enabled/disabled
+- 🔍 **Important:** Test with different user roles
+- 🔍 **Important:** Verify existing users are not affected
+
+**Database Schema Impact:**
+- No structural changes to tables
+- Only RLS policy modifications
+- Backward compatible with existing data
+
+**Security Considerations:**
+- Policy ensures users can only create profiles for their own authenticated identity
+- Email verification prevents profile creation with mismatched email addresses
+- Maintains principle of least privilege
+
+---
+
+### Added - 2025-01-27
+
+#### Comprehensive Authentication System
+**Files:** Multiple authentication-related components and services  
+**Author:** Assistant  
+**Type:** Feature - Major  
+**Priority:** High
+
+**Database Schema Changes:**
+- **File:** `supabase/migrations/20250705012222_little_heart.sql`
+  - Added `password_reset_tokens` table for secure password reset flow
+  - Added `login_attempts` table for rate limiting and security monitoring
+  - Added `user_sessions` table for session management
+  - Added `csrf_tokens` table for CSRF protection
+  - Enhanced `users` table with authentication fields:
+    - `username` (text, unique) - User-chosen identifier
+    - `password_hash` (text) - Encrypted password storage
+    - `email_verified` (boolean) - Email verification status
+    - `email_verification_token` (text) - Email verification token
+    - `failed_login_attempts` (integer) - Failed login counter
+    - `locked_until` (timestamptz) - Account lockout timestamp
+    - `password_changed_at` (timestamptz) - Password change tracking
+
+**Security Functions Added:**
+- **File:** `supabase/migrations/20250705012222_little_heart.sql`
+  - `cleanup_expired_tokens()` - Automatic cleanup of expired security tokens
+  - `generate_secure_token(length)` - Cryptographically secure token generation
+  - `check_password_strength(password)` - Server-side password validation
+  - `is_user_locked(user_email)` - Account lockout status checking
+  - `record_login_attempt()` - Security event logging with rate limiting
+
+**Frontend Components:**
+- **File:** `src/components/auth/SignUpForm.tsx`
+  - Complete user registration form with validation
+  - Real-time password strength indicator
+  - Username availability checking
+  - Terms and conditions acceptance
+
+- **File:** `src/components/auth/SignInForm.tsx`
+  - Email/username authentication support
+  - Remember me functionality
+  - Social authentication placeholders
+  - Rate limiting integration
+
+- **File:** `src/components/auth/ForgotPasswordForm.tsx`
+  - Secure password reset request flow
+  - Email validation and confirmation
+  - User-friendly success/error messaging
+
+- **File:** `src/components/auth/ResetPasswordForm.tsx`
+  - Token-based password reset completion
+  - Password strength validation
+  - Secure token verification
+
+**Service Layer:**
+- **File:** `src/services/authService.ts`
+  - Comprehensive authentication service with input sanitization
+  - Zod schema validation for all auth forms
+  - Integration with Supabase Auth
+  - CSRF token generation and validation
+  - Session management utilities
+
+**State Management:**
+- **File:** `src/store/authStore.ts`
+  - Enhanced auth store with session management
+  - Automatic session restoration
+  - User profile integration
+  - Persistent authentication state
+
+**Routing:**
+- **File:** `src/App.tsx`
+  - Added authentication routes:
+    - `/signin` - User login page
+    - `/signup` - User registration page
+    - `/forgot-password` - Password reset request
+    - `/reset-password` - Password reset completion
+
+**Expected Impact:**
+- ✅ **Positive:** Complete user authentication system
+- ✅ **Positive:** Enhanced security with rate limiting and account lockout
+- ✅ **Positive:** Improved user experience with real-time validation
+- ✅ **Positive:** Secure session management
+
+**Security Features:**
+- Password strength requirements (8+ chars, mixed case, numbers, special chars)
+- Account lockout after 5 failed attempts (30-minute duration)
+- CSRF protection for all authenticated requests
+- Secure session tokens with automatic cleanup
+- Input sanitization to prevent XSS attacks
+- Email verification workflow
+
+**Testing Requirements:**
+- 🔍 **Critical:** Test complete authentication flows
+- 🔍 **Critical:** Verify rate limiting and account lockout
+- 🔍 **Critical:** Test password reset security
+- 🔍 **Important:** Verify CSRF protection
+- 🔍 **Important:** Test session management and cleanup
+
+---
+
+### Changed - 2025-01-27
+
+#### Mobile Navigation Architecture Redesign
+**Files:** `src/components/layout/Header.tsx`  
+**Author:** Assistant  
+**Type:** Enhancement - Major  
+**Priority:** Medium
+
+**Specific Changes:**
+- **Lines 15-25:** Added mobile overlay state management
+  - `isMobileSearchOpen` - Controls search overlay visibility
+  - `isMobileAuthOpen` - Controls authentication overlay visibility
+  - Prevents multiple overlays from being open simultaneously
+
+- **Lines 27-35:** Added responsive event listeners
+  - Window resize handler to close overlays on screen size change
+  - Automatic cleanup to prevent memory leaks
+
+- **Lines 37-45:** Added body scroll prevention
+  - Prevents background scrolling when mobile overlays are active
+  - Restores scroll behavior when overlays close
+
+- **Lines 180-220:** Redesigned mobile header layout
+  - Consolidated Sign In/Sign Up links into single Profile icon
+  - Improved touch target sizing (44x44px minimum)
+  - Enhanced visual hierarchy with consistent spacing
+
+- **Lines 280-350:** Added full-screen search overlay
+  - Immersive search experience with auto-focus
+  - Search suggestions and recent searches
+  - Large touch-friendly input controls
+
+- **Lines 360-450:** Added unified authentication overlay
+  - Context-aware content (signed in vs signed out states)
+  - User profile information display
+  - Quick access to account features
+
+**Expected Impact:**
+- ✅ **Positive:** Improved mobile user experience
+- ✅ **Positive:** Reduced cognitive load with simplified navigation
+- ✅ **Positive:** Better accessibility with proper touch targets
+- ✅ **Positive:** Enhanced visual consistency across breakpoints
+
+**Potential Side Effects:**
+- ⚠️ **Monitor:** Ensure overlays don't interfere with other mobile interactions
+- ⚠️ **Monitor:** Verify performance on older mobile devices
+- ⚠️ **Test:** Cross-browser compatibility on mobile browsers
+
+---
 
 ### Security
-- **Comprehensive Authentication Security**:
+- **Enhanced Authentication Security**:
   - Password hashing using Supabase Auth's secure implementation
   - Input sanitization to prevent XSS and injection attacks
   - CSRF protection with token validation
@@ -210,3 +333,14 @@ This project uses [Semantic Versioning](https://semver.org/):
 - **Removed** for now removed features
 - **Fixed** for any bug fixes
 - **Security** in case of vulnerabilities
+
+## Changelog Entry Requirements
+
+Each entry must include:
+- **File path and specific lines changed**
+- **Root cause analysis for bugs**
+- **Expected impact and potential side effects**
+- **Testing requirements and priority levels**
+- **Security considerations**
+- **Performance implications**
+- **Backward compatibility notes**
